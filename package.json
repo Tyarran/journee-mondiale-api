@@ -13,5 +13,9 @@
   "license": "MIT",
   "devDependencies": {
     "bs-platform": "*"
+  },
+  "dependencies": {
+    "bs-axios": "^0.0.43",
+    "jsdom": "^16.4.0"
   }
 }
