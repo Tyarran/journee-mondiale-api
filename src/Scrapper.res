@@ -89,9 +89,9 @@ Axios.get(listPageUrl) |> Js.Promise.then_(response => {
       switch prepareDataToStore(result) {
       | Ok(value) => {
           NodeBinding.writeFileSync(destPath, value)
-          Js.log(`Scrapping done. All data are stored in "{destPath}"`)
+          Js.log(`Scrapping done. All data are stored in "${destPath}"`)
         }
-      | Error(message) => Js.log(`Scrapping error: {message}`)
+      | Error(message) => Js.log(`Scrapping error: ${message}`)
       }
       Js.Promise.resolve(result)
     })
