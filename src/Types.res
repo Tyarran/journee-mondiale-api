@@ -4,3 +4,14 @@ type internationalDay = {
   title: string,
   url: string,
 }
+
+type internationalDaySummary = {
+  title: string,
+  url: string,
+}
+
+type daySummary = {
+  date: string,
+  uri: string,
+  internationalDays: array<internationalDaySummary>,
+}
