@@ -12,9 +12,10 @@
   },
   "suffix": ".bs.js",
   "bs-dependencies": [
-    "bs-axios"
+    "bs-axios",
+    "bs-express"
   ],
   "warnings": {
     "error": "+101"
-  },
+  }
 }

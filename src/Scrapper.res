@@ -1,46 +1,19 @@
+open Bindings
+
 let listPageUrl = "https://www.journee-mondiale.com/les-journees-mondiales.htm"
+let destPath = "./data.json"
 
-module JSDOM = {
-  module Node = {
-    type t = {
-      textContent: string,
-      innerHTML: string,
-      src: string,
-      href: string,
-    }
-  }
-  type nodeList = array<Node.t>
-  type document
-  type window = {document: document}
-  type t = {window: window}
-
-  @bs.new @bs.module("jsdom") external make: string => t = "JSDOM"
-  @bs.send external querySelectorAll: (document, string) => nodeList = "querySelectorAll"
-  @bs.send @bs.return(nullable)
-  external querySelector: (document, string) => option<Node.t> = "querySelector"
-  @bs.send external getAttribute: (Node.t, string) => option<string> = "getAttribute"
+let getDescriptionUrls = response => {
+  let dom = JSDOMBinding.make(response["data"])
+  let elements = JSDOMBinding.querySelectorAll(dom.window.document, "article li a")
+  Array.map((item: JSDOMBinding.Node.t) => item.href, elements)
 }
 
-@bs.get external getConfigUrl: Axios_types.config => string = "url"
-
-let getWorldDayUrls = response => {
-  let dom = JSDOM.make(response["data"])
-  let elements = JSDOM.querySelectorAll(dom.window.document, "article li a")
-  Array.map((item: JSDOM.Node.t) => item.href, elements)
-}
-
-type result = {
-  content: option<string>,
-  imageUrl: option<string>,
-  title: string,
-  url: string,
-}
-
-let extractDayOfYear = (dom: JSDOM.t) => {
-  let day = JSDOM.querySelector(dom.window.document, "#date>time")
+let extractDayOfYear = (dom: JSDOMBinding.t) => {
+  let day = JSDOMBinding.querySelector(dom.window.document, "#date>time")
   switch day {
   | Some(node) =>
-    switch JSDOM.getAttribute(node, "datetime") {
+    switch JSDOMBinding.getAttribute(node, "datetime") {
     | Some(attribute) =>
       Some(Js.String.split("-", attribute) |> (splitted => splitted[1] ++ "-" ++ splitted[2]))
     | None => None
@@ -49,54 +22,76 @@ let extractDayOfYear = (dom: JSDOM.t) => {
   }
 }
 
-let extractImageUrl = (dom: JSDOM.t) => {
-  switch JSDOM.querySelector(dom.window.document, "#journeesDuJour img") {
+let extractImageUrl = (dom: JSDOMBinding.t) => {
+  switch JSDOMBinding.querySelector(dom.window.document, "#journeesDuJour img") {
   | Some(node) => Some(node.src)
   | None => None
   }
 }
 
-let extractContent = (dom: JSDOM.t) => {
-  switch JSDOM.querySelector(dom.window.document, "#journeesDuJour") {
+let extractContent = (dom: JSDOMBinding.t) => {
+  switch JSDOMBinding.querySelector(
+    dom.window.document,
+    "#journeesDuJour section[itemprop=description]",
+  ) {
   | Some(node) => Some(node.innerHTML)
   | None => None
   }
 }
 
-let extractTitle = (dom: JSDOM.t) => {
-  switch JSDOM.querySelector(dom.window.document, "#journeesDuJour>header>h1") {
+let extractTitle = (dom: JSDOMBinding.t) => {
+  switch JSDOMBinding.querySelector(dom.window.document, "#journeesDuJour>header>h1") {
   | Some(node) => node.textContent
   | None => ""
   }
 }
 
+let addResultToMap = (map, dayOfYear, result) => {
+  switch dayOfYear {
+  | Some(dayOfYear) =>
+    switch Js.Dict.get(map, dayOfYear) {
+    | Some(resultList) => Js.Dict.set(map, dayOfYear, list{result, ...resultList})
+    | None => Js.Dict.set(map, dayOfYear, list{result})
+    }
+  | None => ()
+  }
+}
+
+let prepareDataToStore = data => {
+  let formatedResult = Js.Dict.map(
+    (. value) => Belt.List.toArray(value) |> Belt.Array.reverse,
+    data,
+  )
+  switch Js.Json.stringifyAny(formatedResult) {
+  | Some(value) => Ok(value)
+  | None => Error("Unable to stringify")
+  }
+}
+
 Axios.get(listPageUrl) |> Js.Promise.then_(response => {
-  let worldDayUrls = getWorldDayUrls(response)
+  let descriptionUrls = getDescriptionUrls(response)
   let resultMap = Js.Dict.fromList(list{})
+  let addResult = addResultToMap(resultMap)
   let _ =
-    Axios.all(Array.map(url => Axios.get(url), worldDayUrls)) |> Js.Promise.then_(responses => {
+    Axios.all(Array.map(url => Axios.get(url), descriptionUrls)) |> Js.Promise.then_(responses => {
       Belt.Array.forEach(responses, response => {
-        let dom = JSDOM.make(response["data"])
-        let result = {
+        let dom = JSDOMBinding.make(response["data"])
+        let result: Types.internationalDay = {
           content: extractContent(dom),
           imageUrl: extractImageUrl(dom),
           title: extractTitle(dom),
-          url: getConfigUrl(response["config"]),
+          url: AxiosBinding.getConfigUrl(response["config"]),
         }
-        switch extractDayOfYear(dom) {
-        | Some(dayOfYear) =>
-          switch Js.Dict.get(resultMap, dayOfYear) {
-          | Some(resultList) => Js.Dict.set(resultMap, dayOfYear, list{result, ...resultList})
-          | None => Js.Dict.set(resultMap, dayOfYear, list{result})
-          }
-        | None => ()
-        }
+        addResult(extractDayOfYear(dom), result)
       })
       Js.Promise.resolve(resultMap)
     }) |> Js.Promise.then_(result => {
-      switch Js.Json.stringifyAny(result) {
-      | Some(value) => Node.writeFileSync("./data.json", value)
-      | None => ()
+      switch prepareDataToStore(result) {
+      | Ok(value) => {
+          NodeBinding.writeFileSync(destPath, value)
+          Js.log(`Scrapping done. All data are stored in "{destPath}"`)
+        }
+      | Error(message) => Js.log(`Scrapping error: {message}`)
       }
       Js.Promise.resolve(result)
     })

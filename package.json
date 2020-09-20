@@ -12,10 +12,12 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "bs-platform": "*"
+    "bs-platform": "*",
+    "nodemon": "^2.0.4"
   },
   "dependencies": {
     "bs-axios": "^0.0.43",
+    "bs-express": "^1.0.2",
     "jsdom": "^16.4.0"
   }
 }
