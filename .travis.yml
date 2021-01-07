@@ -12,5 +12,7 @@ script:
   - mkdir ./dist/
   - yarn build
   - cp ./src/*.bs.js ./dist/
+  - cp Dockerfile dist/
   - cd dist
   - node Scrapper.bs.js
+  - docker build . -t journee-mondiale-api
