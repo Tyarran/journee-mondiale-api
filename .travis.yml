@@ -12,3 +12,5 @@ script:
   - mkdir ./dist/
   - yarn build
   - cp ./src/*.bs.js ./dist/
+  - cd dist
+  - node Scrapper.bs.js
