@@ -1,0 +1,12 @@
+language: node_js
+
+services:
+  - docker
+
+install:
+  - yarn install -D
+
+script:
+  - mkdir ./dist/
+  - yarn build
+  - cp ./src/*.bs.js ./dist/
